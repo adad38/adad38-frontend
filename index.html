@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Income Tracker — Bill Breakdown</title>
+<style>
+  :root {
+    --navy: #0F2236;
+    --navy-light: #16314D;
+    --card: #1B3A57;
+    --gold: #C9A35E;
+    --gold-light: #E3C893;
+    --text: #EAF0F6;
+    --hint: #93A8BD;
+    --green: #4CAF7D;
+    --red: #E0697A;
+    --border: rgba(201,163,94,0.25);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: radial-gradient(circle at 20% 0%, rgba(201,163,94,0.08), transparent 50%), var(--navy);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 28px 20px 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    font-size: 26px;
+    color: var(--gold-light);
+    letter-spacing: 0.5px;
+    font-weight: 800;
+  }
+  header p {
+    color: var(--hint);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  .summary-bar {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .summary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+  }
+  .summary-card .label { font-size: 11px; color: var(--hint); text-transform: uppercase; letter-spacing: 0.6px; }
+  .summary-card .value { font-size: 22px; font-weight: 800; color: var(--gold-light); margin-top: 4px; }
+
+  .upload-toggle {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 16px;
+    text-align: right;
+  }
+  .upload-toggle button {
+    background: none;
+    border: none;
+    color: var(--hint);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 6px 4px;
+  }
+
+  .upload-section {
+    max-width: 900px;
+    margin: 8px auto 0;
+    padding: 0 16px;
+    display: none;
+  }
+  .upload-section.show { display: block; }
+  .upload-box {
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .upload-box .title { font-size: 13px; font-weight: 700; color: var(--gold); margin-bottom: 10px; }
+  .upload-box input[type=password] {
+    width: 100%;
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 10px;
+    outline: none;
+  }
+  .upload-box button.upload-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--gold), #a3793f);
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a1a;
+    cursor: pointer;
+  }
+  #uploadStatus { margin-top: 8px; font-size: 12px; text-align: center; min-height: 16px; }
+
+  .last-upload {
+    max-width: 900px;
+    margin: 6px auto 0;
+    padding: 0 16px;
+    font-size: 11px;
+    color: var(--hint);
+  }
+
+  .bills-container {
+    max-width: 900px;
+    margin: 16px auto 0;
+    padding: 0 16px;
+  }
+  .bill-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .bill-header {
+    padding: 14px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, rgba(201,163,94,0.12), transparent);
+  }
+  .bill-header .bill-title { display: flex; align-items: center; gap: 10px; }
+  .bill-header .bill-no {
+    background: var(--gold);
+    color: #1a1a1a;
+    font-weight: 800;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 8px;
+  }
+  .bill-header .bill-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .bill-header .bill-total { font-size: 13px; color: var(--gold-light); font-weight: 700; }
+  .bill-header .chevron { transition: transform 0.2s; color: var(--hint); margin-left: 8px; }
+  .bill-card.open .chevron { transform: rotate(180deg); }
+
+  .bill-items { display: none; border-top: 1px solid var(--border); }
+  .bill-card.open .bill-items { display: block; }
+
+  .item-row {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 13px;
+  }
+  .item-row:last-child { border-bottom: none; }
+  .item-row .item-top { display: flex; justify-content: space-between; gap: 10px; }
+  .item-no { color: var(--gold); font-weight: 700; font-size: 12px; min-width: 50px; }
+  .item-desc { color: var(--text); flex: 1; }
+  .item-meta { display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px; color: var(--hint); }
+  .item-birr { color: var(--green); font-weight: 700; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--hint);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #1a1a1a;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 Income Tracker</h1>
+  <p>Bill Breakdown — Achievement &amp; Birr Summary</p>
+</header>
+
+<div class="summary-bar">
+  <div class="summary-card">
+    <div class="label">Total Bills</div>
+    <div class="value" id="totalBillsValue">—</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Total Birr</div>
+    <div class="value" id="totalBirrValue">—</div>
+  </div>
+</div>
+
+<div class="upload-toggle">
+  <button onclick="toggleUploadSection()">⚙️ Admin Upload</button>
+</div>
+
+<div class="upload-section" id="uploadSection">
+  <div class="upload-box">
+    <div class="title">📤 Excel / CSV Upload</div>
+    <input type="password" id="uploadPasswordInput" placeholder="Admin Password">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleUpload(event)">
+    <button class="upload-btn" onclick="checkPasswordAndPickFile()">📂 ፋይል ምረጥ (Excel / CSV)</button>
+    <div id="uploadStatus"></div>
+  </div>
+</div>
+
+<div class="last-upload" id="lastUploadInfo"></div>
+
+<div class="bills-container" id="billsContainer">
+  <div class="empty-state">
+    <div class="icon">📭</div>
+    <div>Data ገና አልተጫነም — Admin Upload ይጠቀሙ</div>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // 🌐 Backend Configuration
+  // ============================================================
+  const BASE_URL = "https://YOUR-BACKEND-URL.onrender.com"; // ⚠️ Deploy ካደረጉ በኋላ ይቀይሩ
+  const UPLOAD_PASSWORD = "2020";
+
+  // ============================================================
+  // 🔧 UI Helpers
+  // ============================================================
+  function toggleUploadSection() {
+    document.getElementById('uploadSection').classList.toggle('show');
+  }
+
+  function formatBirr(n) {
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+  }
+
+  function checkPasswordAndPickFile() {
+    const pw = document.getElementById('uploadPasswordInput').value.trim();
+    const statusEl = document.getElementById('uploadStatus');
+    if (pw !== UPLOAD_PASSWORD) {
+      statusEl.textContent = '❌ Password ትክክል አይደለም';
+      statusEl.style.color = 'var(--red)';
+      return;
+    }
+    statusEl.textContent = '';
+    document.getElementById('fileInput').click();
+  }
+
+  // ============================================================
+  // 📡 API — Load Income Data
+  // ============================================================
+  async function loadIncome() {
+    try {
+      const res = await fetch(BASE_URL + '/api/income');
+      const data = await res.json();
+      if (data && data.items && data.items.length > 0) {
+        renderBills(data.items);
+        document.getElementById('totalBirrValue').textContent = 'ETB ' + formatBirr(data.totalBirr || 0);
+        if (data.uploadedAt) {
+          const d = new Date(data.uploadedAt);
+          document.getElementById('lastUploadInfo').textContent =
+            'Last updated: ' + d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        }
+      }
+    } catch (e) {
+      console.log('API load failed:', e.message);
+    }
+  }
+
+  // ============================================================
+  // 🗂️ Render Bills (grouped by BILL header)
+  // ============================================================
+  function renderBills(items) {
+    const billsMap = {};
+    const billOrder = [];
+
+    items.forEach(item => {
+      if (item.isHeader) {
+        if (!billsMap[item.bill]) {
+          billsMap[item.bill] = { no: item.no, name: item.description, items: [], total: 0 };
+          billOrder.push(item.bill);
+        }
+      } else {
+        if (!billsMap[item.bill]) {
+          billsMap[item.bill] = { no: item.bill, name: item.billName || '', items: [], total: 0 };
+          billOrder.push(item.bill);
+        }
+        billsMap[item.bill].items.push(item);
+        billsMap[item.bill].total += item.birr || 0;
+      }
+    });
+
+    document.getElementById('totalBillsValue').textContent = billOrder.length;
+
+    const container = document.getElementById('billsContainer');
+    if (billOrder.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>Data የለም</div></div>`;
+      return;
+    }
+
+    container.innerHTML = billOrder.map((billKey, idx) => {
+      const bill = billsMap[billKey];
+      if (bill.items.length === 0) return ''; // empty bills skip
+
+      const itemsHtml = bill.items.map(it => `
+        <div class="item-row">
+          <div class="item-top">
+            <span class="item-no">${it.no}</span>
+            <span class="item-desc">${it.description}</span>
+          </div>
+          <div class="item-meta">
+            <span>Qty: ${it.quantity ? it.quantity.toLocaleString(undefined, {maximumFractionDigits:2}) : '—'}</span>
+            <span class="item-birr">ETB ${formatBirr(it.birr)}</span>
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="bill-card" id="bill-${idx}">
+          <div class="bill-header" onclick="toggleBill(${idx})">
+            <div class="bill-title">
+              <span class="bill-no">${bill.no}</span>
+              <span class="bill-name">${bill.name}</span>
+            </div>
+            <div style="display:flex;align-items:center;">
+              <span class="bill-total">ETB ${formatBirr(bill.total)}</span>
+              <span class="chevron">▾</span>
+            </div>
+          </div>
+          <div class="bill-items">${itemsHtml}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function toggleBill(idx) {
+    document.getElementById('bill-' + idx).classList.toggle('open');
+  }
+
+  // ============================================================
+  // 📤 Upload Handler
+  // ============================================================
+  async function handleUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('uploadStatus');
+    statusEl.innerHTML = '<span class="spinner"></span>Uploading...';
+    statusEl.style.color = 'var(--gold)';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(BASE_URL + '/api/income/upload', {
+        method: 'POST',
+        headers: { 'x-upload-password': UPLOAD_PASSWORD },
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok) {
+        statusEl.textContent = data.message || '✅ Upload ተሳካ!';
+        statusEl.style.color = 'var(--green)';
+        await loadIncome();
+        setTimeout(() => {
+          document.getElementById('uploadSection').classList.remove('show');
+          document.getElementById('uploadPasswordInput').value = '';
+          statusEl.textContent = '';
+        }, 2500);
+      } else {
+        statusEl.textContent = '❌ ' + (data.message || 'Upload failed');
+        statusEl.style.color = 'var(--red)';
+      }
+    } catch (e) {
+      statusEl.textContent = '❌ Server error: ' + e.message;
+      statusEl.style.color = 'var(--red)';
+    }
+    event.target.value = '';
+  }
+
+  // ============================================================
+  // 🚀 Init
+  // ============================================================
+  loadIncome();
+</script>
+
+</body>
+</html>
